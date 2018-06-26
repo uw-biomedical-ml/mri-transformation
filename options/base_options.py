@@ -53,6 +53,8 @@ class BaseOptions():
         self.parser.add_argument('--predict_idx_type', type=str, default='last', help='specify which slice to predict for T > 1, first|middle|last')
         self.parser.add_argument('--use_tanh', action='store_true', help='if specified use tanh after the last layer of decoder in convrnn')
         self.parser.add_argument('--conv_type', type=str, default='2d', help='convolution layer type, 2d|3d')
+        self.parser.add_argument('--data_suffix', type=str, default='png', help='data format, npy|png')
+        self.parser.add_argument('--valid_folder', type=str, default='valid', help='validation data folder, valid|val')
         self.initialized = True
 
     def parse(self):

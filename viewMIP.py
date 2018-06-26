@@ -13,14 +13,14 @@ from options.test_options import TestOptions
 
 loadsize = 256
 
-name = 't123_mra_cgan_L1_unet256_T3_3d'
-which_epoch = 'test_50'
+name = 't123_mra_cgan_unet256_T5_3d'
+which_epoch = 'test_100'
 directory = "/data/mri/convrnn/results/{}/{}".format(name, which_epoch)
 
-allfiles = sorted(glob.glob("{}/images/*_real_B.png".format(directory))) ##IXI328
+allfiles = sorted(glob.glob("{}/images/*-2_real_B.png".format(directory))) ##IXI328
 
 def get_subject_id(filepath):
-  m = re.match(r'(.*)-\d+-*', os.path.basename(filepath))
+  m = re.match(r'(.*)-\d+-\d+-*', os.path.basename(filepath))
   return m.group(1)
 
 subjectSlicesMap = {}

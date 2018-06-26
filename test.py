@@ -6,6 +6,7 @@ from models.model import Model
 from util.visualizer import Visualizer
 from util import html
 import sys
+import ntpath
 
 eval_mode = False  ## the test results look much worse when using eval mode for dti -> T1 transformation, hasn't tested for other transformations yet. Don't know why!!
 opt = TestOptions().parse()
@@ -42,9 +43,19 @@ for i, data in enumerate(loader):
         break
     model.set_input(data)
     model.test()
-    visuals = model.get_current_visuals(predict_idx)
-    img_path = model.get_image_paths()
-    print('%04d: process image... %s' % (i, img_path))
-    visualizer.save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, add_to_html=i<opt.how_many_display)
+    if opt.display_type == 'all':
+      visuals = model.get_all_visuals()
+      img_path = ntpath.basename(model.get_image_paths()[0]) ##image_path[0])os.path.basename(model.get_image_paths())
+      img_path_prefix = os.path.splitext(img_path)[0]
+      print('%04d: process image... %s' % (i, img_path_prefix))
+      for t in range(opt.T):
+        visualizer.save_images(webpage, visuals[t], '{}-{}.png'.format(img_path_prefix, t), aspect_ratio=opt.aspect_ratio, name='{}-{}'.format(img_path_prefix, t), add_to_html=i<opt.how_many_display, add_header=t==0, add_txt=False, header=img_path_prefix)
+    else:
+      visuals = model.get_current_visuals(predict_idx)
+      img_path = model.get_image_paths()
+      print('%04d: process image... %s' % (i, img_path))
+      visualizer.save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, add_to_html=i<opt.how_many_display)
+    if i > opt.how_many_display:
+      webpage.save()
     
 webpage.save()

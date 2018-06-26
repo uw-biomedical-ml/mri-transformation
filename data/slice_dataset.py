@@ -7,19 +7,24 @@ import torchvision.transforms as transforms
 import os.path
 import glob
 import re
+import numpy as np
 
-def _get_subject_slice(filepath):
-  m = re.match(r'(.*)-(\d+).png', os.path.basename(filepath))
+def _get_subject_slice(filepath, suffix):
+  if suffix == 'png':
+    m = re.match(r'(.*)-(\d+).png', os.path.basename(filepath))
+  elif suffix == 'npy':
+    m = re.match(r'(.*)_(\d+)\.(.*)', os.path.basename(filepath))
   return m.group(1), int(m.group(2))
 
 class SliceDataset(data.Dataset):
   def __init__(self, opt):
     super(SliceDataset, self).__init__()
     self.dir_AB = os.path.join(opt.dataroot, opt.phase)
+    self.suffix = opt.data_suffix
     subjects = {}
-    files = glob.glob("{}/*.png".format(self.dir_AB))
+    files = glob.glob("{}/*.{}".format(self.dir_AB, self.suffix))
     for f in files:
-      subject, slice_id = _get_subject_slice(f)
+      subject, slice_id = _get_subject_slice(f, self.suffix)
       if subject in subjects:
         info = subjects[subject]
         min_id, max_id = info['min'], info['max']
@@ -56,16 +61,28 @@ class SliceDataset(data.Dataset):
     
     print("---------------- {} dataset contains {} samples ----------------".format(opt.phase, self.__len__()))
 
+  def load_single_file(self, fname):
+    if self.suffix == 'npy':
+      AB = np.load(fname) ## AB is a numpy array in the range of [0,1]
+      AB = torch.from_numpy(AB).float() ## shape: fineSize x (2 * fineSize) x 3
+      AB = AB.permute(2,0,1) ## C x H x W
+    else:
+      img = Image.open(fname).convert('RGB')
+      AB = transforms.ToTensor()(img)
+    return AB 
+
   def __getitem__(self, idx):
     subject = self.subject_lookup[self.indices[idx][0]]
     slice_start = self.indices[idx][1]
     ABs = []
     for i in range(self.T):
-      fname = "%s/%s-%03d.png" % (self.dir_AB, subject, slice_start + i)
+      if self.suffix == 'npy':
+        fname = "%s/%s_%04d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
+      else:
+        fname = "%s/%s-%03d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
       if i == self.predict_idx:
         AB_path = fname
-      img = Image.open(fname).convert('RGB')
-      AB = transforms.ToTensor()(img)
+      AB = self.load_single_file(fname)
       AB = transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))(AB)
       ABs.append(AB)
 
@@ -113,7 +130,7 @@ class SliceDataset(data.Dataset):
       tmp = B[:, 0, ...] * 0.299 + B[:, 1, ...] * 0.587 + B[:, 2, ...] * 0.114
       B = tmp.unsqueeze(1)
 
-    return {'A': A, 'B': B, 'AB_path':AB_path} ## AB_path is the path of the last slice
+    return {'A': A, 'B': B, 'AB_path':AB_path}
       
   def __len__(self):
     return len(self.indices)

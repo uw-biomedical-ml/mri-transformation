@@ -25,7 +25,7 @@ loader = torch.utils.data.DataLoader(
 #    sys.exit()
 
 opt_val = copy.deepcopy(opt)
-opt_val.phase = "valid"
+opt_val.phase = opt.valid_folder ##"valid"
 dataset_val = SliceDataset(opt_val)
 loader_val = torch.utils.data.DataLoader(
             dataset_val,

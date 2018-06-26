@@ -178,7 +178,13 @@ class Model(BaseModel):
                         ('D_fake', loss_D_fake)
                       ])
 
-  ## return the last slice in a series T
+  def get_all_visuals(self):
+    visuals = []
+    for i in range(self.opt.T):
+      visuals.append(self.get_current_visuals(i))
+    return visuals
+
+  ## return the slice idx in a series T
   def get_current_visuals(self, idx=-1):
     #print("real_A", self.real_A.data.min(), self.real_A.data.max(), self.real_A.data.abs().mean(), self.real_A.data.abs().std())
     #print("fake_B", self.fake_B.data.min(), self.fake_B.data.max(), self.fake_B.data.abs().mean(), self.fake_B.data.abs().std())

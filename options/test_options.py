@@ -12,4 +12,6 @@ class TestOptions(BaseOptions):
         self.parser.add_argument('--how_many', type=int, default=float("inf"), help='how many test images to run')
         self.parser.add_argument('--how_many_display', type=int, default=100, help='how many test images to display in the webpage')
         self.parser.add_argument('--target_type', type=str, default='', help='pdd | qform025 | qform134 | qform')
+        self.parser.add_argument('--display_type', type=str, default='all', help='all | single')
         self.isTrain = False
+

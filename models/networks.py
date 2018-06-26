@@ -136,7 +136,9 @@ def define_G(opt): ## input_nc, output_nc, ngf, which_model_netG, norm='batch', 
     elif which_model_netG == 'my_unet':
         netG = MyUnetGenerator(input_nc, output_nc, opt.T, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_256_3d':
-        netG = UnetGenerator3D(input_nc, output_nc, opt.T, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)    
+        netG = UnetGenerator3D(input_nc, output_nc, opt.T, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
+    elif which_model_netG == 'unet_128_3d':
+        netG = UnetGenerator3D(input_nc, output_nc, opt.T, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     if len(gpu_ids) > 0:

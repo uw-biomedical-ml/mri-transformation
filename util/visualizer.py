@@ -135,7 +135,7 @@ class Visualizer():
             log_file.write('%s\n' % message)
 
     # save image to the disk
-    def save_images(self, webpage, visuals, image_path=None, aspect_ratio=1.0, name=None, add_to_html=True):
+    def save_images(self, webpage, visuals, image_path=None, aspect_ratio=1.0, name=None, add_to_html=True, add_header=True, add_txt=True, header=None):
         def save_select_channels(im, select_channels, name, label, ims, txts, links):
           image_name = '%s_%s.png' % (name, label)
           save_path = os.path.join(image_dir, image_name)
@@ -152,7 +152,11 @@ class Visualizer():
           short_path = ntpath.basename(image_path[0])
           name = os.path.splitext(short_path)[0]
 
-        webpage.add_header(name)
+        if add_header:
+          if header:
+            webpage.add_header(header)
+          else:
+            webpage.add_header(name)
         ims = []
         txts = []
         links = []
@@ -164,4 +168,4 @@ class Visualizer():
           else:
             save_select_channels(im, [0,1,2], name, label, ims, txts, links)
         if add_to_html:
-          webpage.add_images(ims, txts, links, width=self.win_size)
+          webpage.add_images(ims, txts, links, width=self.win_size, add_txt=add_txt)
