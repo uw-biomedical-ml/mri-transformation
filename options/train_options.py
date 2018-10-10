@@ -30,5 +30,8 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
         self.parser.add_argument('--validate_freq', type=int, default=5000, help='frequency of running the validation')  
         self.parser.add_argument('--with_logit_loss', action='store_true', help='specify if using BSEWtihLogitsLoss for GANLoss')
+        self.parser.add_argument('--use_L1', action='store_true', help='specify if using L1 for content loss')
+        self.parser.add_argument('--use_cosine', action='store_true', help='specify is using Cosine for content loss')
+        self.parser.add_argument('--use_percept', action='store_true', help='specify if using perceptual loss')
  
         self.isTrain = True

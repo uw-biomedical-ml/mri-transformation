@@ -11,7 +11,7 @@ import numpy as np
 
 def _get_subject_slice(filepath, suffix):
   if suffix == 'png':
-    m = re.match(r'(.*)-(\d+).png', os.path.basename(filepath))
+    m = re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##colorfa/pdd: re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##re.match(r'(.*)-(\d+).png', os.path.basename(filepath)), mra
   elif suffix == 'npy':
     m = re.match(r'(.*)_(\d+)\.(.*)', os.path.basename(filepath))
   return m.group(1), int(m.group(2))
@@ -76,7 +76,7 @@ class SliceDataset(data.Dataset):
     slice_start = self.indices[idx][1]
     ABs = []
     for i in range(self.T):
-      if self.suffix == 'npy':
+      if self.suffix == 'npy' or self.suffix == 'png': ## colorfa/pdd: or self.suffix == 'png': without or: mra
         fname = "%s/%s_%04d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
       else:
         fname = "%s/%s-%03d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
@@ -129,6 +129,12 @@ class SliceDataset(data.Dataset):
     if output_nc == 1:  # RGB to gray
       tmp = B[:, 0, ...] * 0.299 + B[:, 1, ...] * 0.587 + B[:, 2, ...] * 0.114
       B = tmp.unsqueeze(1)
+
+    if self.opt.same_hemisphere:
+      mask = torch.ones(B.shape[0], B.shape[2], B.shape[3])
+      mask.masked_fill_(B[:,0].lt(0), -1)
+      for i in range(B.shape[1]):
+        B[:, i] = B[:, i] * mask
 
     return {'A': A, 'B': B, 'AB_path':AB_path}
       

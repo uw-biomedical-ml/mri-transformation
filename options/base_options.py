@@ -41,7 +41,7 @@ class BaseOptions():
         self.parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|scale_width_and_crop]')
         self.parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
         self.parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal|xavier|kaiming|orthogonal]')
-        self.parser.add_argument('--input_channels', nargs='+', help='select output channels, not set meaning all channels')
+        self.parser.add_argument('--input_channels', nargs='+', help='select input channels, not set meaning all channels')
         self.parser.add_argument('--output_channels', nargs='+', help='select output channels, 0|1|2, not set meaning MRA')
         self.parser.add_argument('--gan_only', action='store_true', help='if specified, do not include content loss')        
         self.parser.add_argument('--content_only', action='store_true', help='if specified, do not include gan loss')
@@ -55,6 +55,7 @@ class BaseOptions():
         self.parser.add_argument('--conv_type', type=str, default='2d', help='convolution layer type, 2d|3d')
         self.parser.add_argument('--data_suffix', type=str, default='png', help='data format, npy|png')
         self.parser.add_argument('--valid_folder', type=str, default='valid', help='validation data folder, valid|val')
+        self.parser.add_argument('--same_hemisphere', action='store_true', help='if specified flip all channels so that all vectors are in the same hemishere as x1>=0')
         self.initialized = True
 
     def parse(self):

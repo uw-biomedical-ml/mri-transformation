@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from . import networks
 import util.util as util
 from collections import OrderedDict
+from .vgg import Vgg16
 
 class Model(BaseModel):
   def name(self):
@@ -43,6 +44,12 @@ class Model(BaseModel):
       self.criterionGAN = networks.GANLoss(with_logit_loss=opt.with_logit_loss, use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
         
       self.criterionL1 = nn.L1Loss()
+      self.criterionCosine = networks.CosineLoss(tensor=self.Tensor, conv_type=opt.conv_type)
+      if opt.use_percept:
+        self.vgg = Vgg16(requires_grad=False)
+        self.vgg_mse_loss = torch.nn.MSELoss()
+        if len(self.gpu_ids) > 0:
+          self.vgg.cuda(self.gpu_ids[0])
 
       # define optimizer
       self.schedulers = []
@@ -63,8 +70,8 @@ class Model(BaseModel):
     print('-----------------------------------------------')
 
   def forward(self, volatile):
-    self.real_A = Variable(self.input_A, volatile=volatile)
-    self.real_B = Variable(self.input_B, volatile=volatile)
+    self.real_A = self.input_A ##Variable(self.input_A, volatile=volatile)
+    self.real_B = self.input_B ##Variable(self.input_B, volatile=volatile)
     self.fake_B = self.netG(self.real_A) ## check whether pred is still Variable, [B,T,c,h,w]
     #if self.gpu_ids and isinstance(self.real_A.data, torch.cuda.FloatTensor):
     #  self.fake_B = nn.parallel.data_parallel(self.netG, self.real_A, self.gpu_ids)
@@ -102,7 +109,7 @@ class Model(BaseModel):
       self.compute_loss_G()
       if run_backward:
         self.optimizer_G.zero_grad()
-        self.loss_G.backward()
+        self.loss_G.backward() 
         self.optimizer_G.step()
 
     if self.opt.conv_type == '2d':
@@ -138,7 +145,31 @@ class Model(BaseModel):
       self.loss_G_GAN = self.criterionGAN(pred_fake, True)      
 
     if not self.opt.gan_only:
-      self.loss_G_content = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_A
+      if self.opt.use_cosine:
+        self.loss_G_cosine = self.criterionCosine(self.fake_B, self.real_B)
+        self.loss_G_content = self.loss_G_cosine
+      if self.opt.use_L1:
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_A
+        if self.opt.use_cosine:
+          self.loss_G_content = self.loss_G_content + self.loss_G_L1
+        else:
+          self.loss_G_content = self.loss_G_L1
+      if self.opt.use_percept:
+        if self.opt.conv_type == '3d':
+          shape = self.real_B.shape
+          B, T, output_nc, H, W = shape[0], shape[1], shape[2], shape[3], shape[4]
+          fake_B = self.fake_B.view(B*T, output_nc, H, W)
+          real_B = self.real_B.view(B*T, output_nc, H, W)
+        else:
+          fake_B = self.fake_B
+          real_B = self.real_B
+        features_fake = self.vgg(fake_B)
+        features_real = self.vgg(real_B)
+        self.loss_G_percept = self.vgg_mse_loss(features_fake.relu1_1, features_real.relu1_1) * self.opt.lambda_A
+        if self.opt.use_cosine or self.opt.use_L1:
+            self.loss_G_content = self.loss_G_content + self.loss_G_percept
+        else:
+            self.loss_G_content = self.loss_G_percept
 
     if self.opt.gan_only:
       self.loss_G = self.loss_G_GAN
@@ -146,7 +177,6 @@ class Model(BaseModel):
       self.loss_G = self.loss_G_content
     else:
       self.loss_G = self.loss_G_GAN + self.loss_G_content
-
     ##self.loss_G.backward()
 
   def set_input(self, input):
@@ -164,16 +194,28 @@ class Model(BaseModel):
     loss_D_real = 0
     loss_D_fake = 0
     loss_G_GAN = 0
+    loss_G_content = 0
+    loss_L1 = 0
+    loss_cosine = 0
+    loss_percept = 0
     if not self.opt.content_only:
-      loss_D_real = self.loss_D_real.data[0]
-      loss_D_fake = self.loss_D_fake.data[0]
-      loss_G_GAN = self.loss_G_GAN.data[0]
-      loss_G_content = 0
+      loss_D_real = self.loss_D_real.detach() ##self.loss_D_real.data[0]
+      loss_D_fake = self.loss_D_fake.detach() ##data[0]
+      loss_G_GAN = self.loss_G_GAN.detach() ##data[0]
     if not self.opt.gan_only:
-      loss_G_content = self.loss_G_content.data[0]
+      loss_G_content = self.loss_G_content.detach() ##data[0]
+      if self.opt.use_L1:
+        loss_L1 = self.loss_G_L1.detach() ##data[0]
+      if self.opt.use_cosine:
+        loss_cosine = self.loss_G_cosine.detach() ##data[0]
+      if self.opt.use_percept:
+        loss_percept = self.loss_G_percept.detach() ##data[0]
 
     return OrderedDict([('G_GAN', loss_G_GAN),
                         ('G_content', loss_G_content),
+                        ('loss_L1', loss_L1),
+                        ('loss_percept', loss_percept),
+                        ('loss_cosine', loss_cosine),
                         ('D_real', loss_D_real),
                         ('D_fake', loss_D_fake)
                       ])
@@ -194,12 +236,12 @@ class Model(BaseModel):
     real_B = util.tensor2im(self.real_B.data, idx)
     return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
-  ## return the last slice in a series T, value in [0,1]
-  def get_current_numpy(self):
+  ## return the slice idx in a series T, value in [0,1]
+  def get_current_numpy(self, idx):
     #print(self.real_A.data[0].min(), self.real_A.data[0].max(), self.fake_B.data[0].min(), self.fake_B.data[0].max(), self.real_B.data[0].min(), self.real_B.data[0].max())
-    real_A = util.tensor2np(self.real_A.data)
-    fake_B = util.tensor2np(self.fake_B.data)
-    real_B = util.tensor2np(self.real_B.data)
+    real_A = util.tensor2np(self.real_A.data, idx)
+    fake_B = util.tensor2np(self.fake_B.data, idx)
+    real_B = util.tensor2np(self.real_B.data, idx)
     return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
   def save(self, label):

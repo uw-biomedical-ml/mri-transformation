@@ -6,6 +6,8 @@ from models.model import Model
 import sys
 from util.visualizer import Visualizer
 import copy
+from util.util import *
+import sys
 
 opt = TrainOptions().parse()
 
@@ -22,7 +24,8 @@ loader = torch.utils.data.DataLoader(
 #  print(data['A'].min(), data['A'].max(), data['A'].norm(), data['B'].min(), data['B'].max(), data['B'].norm())
 #  cnt = cnt + 1
 #  if cnt == 10:
-#    sys.exit()
+print('train', dataset.__len__())
+sys.exit()
 
 opt_val = copy.deepcopy(opt)
 opt_val.phase = opt.valid_folder ##"valid"
@@ -32,7 +35,7 @@ loader_val = torch.utils.data.DataLoader(
             batch_size=opt.batchSize,
             shuffle=False,
             num_workers=int(opt.nThreads))
- 
+
 visualizer = Visualizer(opt)
 
 model = Model()
@@ -78,6 +81,15 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
   epoch_iter = 0
 
   for i, data in enumerate(loader):
+    ### sanity check
+    #A_1 = data['A'][0,1]
+    #A_2 = data['A'][0,2]
+    #print(i, A_1.shape, A_2.shape)
+    #save_image(tensor2im(A_1), 'tmp/{}_1.png'.format(i))
+    #save_image(tensor2im(A_2), 'tmp/{}_2.png'.format(i))
+    #if i == 15:
+    #  sys.exit()
+
     cnt = cnt + 1
     iter_start_time = time.time()
     if total_steps % opt.print_freq == 0:

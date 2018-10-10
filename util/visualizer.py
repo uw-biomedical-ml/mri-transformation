@@ -152,7 +152,7 @@ class Visualizer():
           short_path = ntpath.basename(image_path[0])
           name = os.path.splitext(short_path)[0]
 
-        if add_header:
+        if add_to_html and add_header:
           if header:
             webpage.add_header(header)
           else:

@@ -7,6 +7,8 @@ from util.visualizer import Visualizer
 from util import html
 import sys
 import ntpath
+import numpy as np
+import skimage
 
 eval_mode = False  ## the test results look much worse when using eval mode for dti -> T1 transformation, hasn't tested for other transformations yet. Don't know why!!
 opt = TestOptions().parse()
@@ -29,10 +31,13 @@ if eval_mode:
   model.eval()
 visualizer = Visualizer(opt)
 # create website
-web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch))
+web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'gaussian_%s' % (opt.gaussian))
 if opt.random_rotation:
-  web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'random_rotation')
+  web_dir = os.path.join(web_dir, 'random_rotation') ##os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'random_rotation')
 webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
+npy_dir = os.path.join(web_dir, 'numpy') ##opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'numpy')
+if not os.path.exists(npy_dir):
+  os.makedirs(npy_dir)
 
 predict_idx = -1
 if opt.predict_idx_type == 'middle':
@@ -41,6 +46,12 @@ if opt.predict_idx_type == 'middle':
 for i, data in enumerate(loader):
     if i >= opt.how_many:
         break
+    
+    if opt.gaussian > 0:
+        A_npy = data['A'].numpy()
+        for t in range(opt.T):
+          data['A'][0,t] = torch.from_numpy(skimage.filters.gaussian(A_npy[0,t], sigma=opt.gaussian))
+        
     model.set_input(data)
     model.test()
     if opt.display_type == 'all':
@@ -57,5 +68,14 @@ for i, data in enumerate(loader):
       visualizer.save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, add_to_html=i<opt.how_many_display)
     if i > opt.how_many_display:
       webpage.save()
+    #if opt.target_type == 'pdd':
+    data_np = model.get_current_numpy(predict_idx)
+    short_path = ntpath.basename(model.get_image_paths()[0])
+    name = os.path.splitext(short_path)[0]
+    for label, im in data_np.items(): ## im value in [0,1]
+      im = im * 2 - 1  ## im value in [-1, 1]
+      output_name = '%s_%s' % (name, label)
+      save_path = os.path.join(npy_dir, output_name)
+      np.save(save_path, im)        
     
 webpage.save()

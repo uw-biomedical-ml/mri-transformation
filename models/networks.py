@@ -232,6 +232,24 @@ class GANLoss(nn.Module):
         target_tensor = self.get_target_tensor(input, target_is_real)
         return self.loss(input, target_tensor)
 
+class CosineLoss(nn.Module):
+  def __init__(self, tensor=torch.FloatTensor, conv_type='3d'):
+    super(CosineLoss, self).__init__()
+    self.Tensor = tensor
+    self.loss = nn.CosineEmbeddingLoss()
+    self.conv_type = conv_type
+
+  def __call__(self, x1, x2):
+    if self.conv_type == '2d':
+        output_nc = x1.shape[1]
+        x1 = x1.permute(0,2,3,1).contiguous().view(-1, output_nc)
+        x2 = x2.permute(0,2,3,1).contiguous().view(-1, output_nc)
+    else:
+        output_nc = x1.shape[2]
+        x1 = x1.permute(0,1,3,4,2).contiguous().view(-1, output_nc)
+        x2 = x2.permute(0,1,3,4,2).contiguous().view(-1, output_nc)
+    y = self.Tensor(x1.shape[0]).fill_(1) ##Variable(self.Tensor(x1.shape[0]).fill_(1))
+    return self.loss(x1, x2, y)
 
 # Defines the generator that consists of Resnet blocks between a few
 # downsampling/upsampling operations.
