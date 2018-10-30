@@ -8,6 +8,8 @@ import os.path
 import glob
 import re
 import numpy as np
+from PIL import ImageFilter
+##import util.util as util
 
 def _get_subject_slice(filepath, suffix):
   if suffix == 'png':
@@ -19,6 +21,7 @@ def _get_subject_slice(filepath, suffix):
 class SliceDataset(data.Dataset):
   def __init__(self, opt):
     super(SliceDataset, self).__init__()
+    self.opt = opt
     self.dir_AB = os.path.join(opt.dataroot, opt.phase)
     self.suffix = opt.data_suffix
     subjects = {}
@@ -83,6 +86,25 @@ class SliceDataset(data.Dataset):
       if i == self.predict_idx:
         AB_path = fname
       AB = self.load_single_file(fname)
+      if self.opt.gaussian > 0:
+        w_total = AB.size(2)
+        w = int(w_total / 2)
+        h = AB.size(1)
+        w_offset = random.randint(0, max(0, w - self.opt.fineSize - 1))
+        h_offset = random.randint(0, max(0, h - self.opt.fineSize - 1))
+        A_tensor = AB[:, h_offset:h_offset + self.opt.fineSize,
+             w_offset:w_offset + self.opt.fineSize]
+        A_im = transforms.ToPILImage()(A_tensor)
+        A_blurred = A_im.filter(ImageFilter.GaussianBlur(radius=self.opt.gaussian))
+        A_blurred_tensor = transforms.ToTensor()(A_blurred)
+        if self.opt.minus_gaussian:
+          AB[:, h_offset:h_offset + self.opt.fineSize,
+             w_offset:w_offset + self.opt.fineSize] = AB[:, h_offset:h_offset + self.opt.fineSize,
+             w_offset:w_offset + self.opt.fineSize] - A_blurred_tensor
+        else:
+          AB[:, h_offset:h_offset + self.opt.fineSize,
+             w_offset:w_offset + self.opt.fineSize] = A_blurred_tensor
+          
       AB = transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))(AB)
       ABs.append(AB)
 

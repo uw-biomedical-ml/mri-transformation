@@ -14,5 +14,7 @@ class TestOptions(BaseOptions):
         self.parser.add_argument('--target_type', type=str, default='', help='pdd | qform025 | qform134 | qform')
         self.parser.add_argument('--display_type', type=str, default='all', help='all | single')
         self.parser.add_argument('--gaussian', type=float, default=0, help='gaussian filter sigma')
+        self.parser.add_argument('--minus_gaussian', action='store_true', help='input is origina - gaussian blurred version')
+        self.parser.add_argument('--blank_input', action='store_true', help='blank input')
         self.isTrain = False
 

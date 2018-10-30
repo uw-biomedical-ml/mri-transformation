@@ -24,8 +24,8 @@ loader = torch.utils.data.DataLoader(
 #  print(data['A'].min(), data['A'].max(), data['A'].norm(), data['B'].min(), data['B'].max(), data['B'].norm())
 #  cnt = cnt + 1
 #  if cnt == 10:
-print('train', dataset.__len__())
-sys.exit()
+#print('train', dataset.__len__())
+#sys.exit()
 
 opt_val = copy.deepcopy(opt)
 opt_val.phase = opt.valid_folder ##"valid"
@@ -47,7 +47,7 @@ predict_idx = -1
 if opt.predict_idx_type == 'middle':
   predict_idx = int(opt.T / 2)
 
-def validate(epoch, epoch_iter):
+def validate(epoch, epoch_iter, lowest_val_err):
   print("------------ start validation ----------------")
   errors_sum = {}
   cnt = 0
@@ -69,12 +69,20 @@ def validate(epoch, epoch_iter):
   for k, v in errors_sum.items():
     err[k] = v / cnt
   val_finish_time = time.time()
-  visualizer.print_current_errors(epoch, epoch_iter, err, val_finish_time - val_start_time, 0, False)
+  save_model = False
+  if lowest_val_err < 0 or err['G_content'] < lowest_val_err:
+    print('saving the model at the lowest validation point')
+    model.save('lowest_val')
+    lowest_val_err = err['G_content']
+    save_model = True
+  visualizer.print_current_errors(epoch, epoch_iter, err, val_finish_time - val_start_time, 0, False, save_model=save_model)
   print("------------- end validation --------------------")
+  return lowest_val_err
 
 total_steps = 0
 errors_acc = {}
 cnt = 0
+lowest_val_err = -1
 for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
   epoch_start_time = time.time()
   iter_data_time = time.time()
@@ -127,7 +135,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     if total_steps % opt.validate_freq == 0:
       if opt.eval_for_test:
         model.eval()
-      validate(epoch, epoch_iter)
+      lowest_val_err = validate(epoch, epoch_iter, lowest_val_err)
       if opt.eval_for_test:
         model.train()
   

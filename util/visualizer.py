@@ -122,7 +122,7 @@ class Visualizer():
             win=self.display_id)
 
     # errors: same format as |errors| of plotCurrentErrors
-    def print_current_errors(self, epoch, i, errors, t, t_data, training = True):
+    def print_current_errors(self, epoch, i, errors, t, t_data, training = True, save_model=False):
         message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, i, t, t_data)
         for k, v in errors.items():
             message += '%s: %.6f ' % (k, v)
@@ -133,6 +133,8 @@ class Visualizer():
           log_name = self.val_log_name
         with open(log_name, "a") as log_file:
             log_file.write('%s\n' % message)
+            if save_model:
+                log_file.write('--------- save lowest_val_model ---------\n')
 
     # save image to the disk
     def save_images(self, webpage, visuals, image_path=None, aspect_ratio=1.0, name=None, add_to_html=True, add_header=True, add_txt=True, header=None):

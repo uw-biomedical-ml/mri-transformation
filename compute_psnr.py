@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-datadir = 'results/t1_colorfa_L1_unet128_2d/test_5/gaussian_0'
+datadir = 'results/t1_colorfa_L1_unet128_T3_3d/test_lowest_val/minus_gaussian_1'
 real_Bs = glob.glob('{}/images/*_real_B.png'.format(datadir))
 
 i = 0

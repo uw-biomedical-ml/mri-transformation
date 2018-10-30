@@ -8,7 +8,7 @@ from util import html
 import sys
 import ntpath
 import numpy as np
-import skimage
+#import skimage
 
 eval_mode = False  ## the test results look much worse when using eval mode for dti -> T1 transformation, hasn't tested for other transformations yet. Don't know why!!
 opt = TestOptions().parse()
@@ -31,7 +31,12 @@ if eval_mode:
   model.eval()
 visualizer = Visualizer(opt)
 # create website
-web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'gaussian_%s' % (opt.gaussian))
+if opt.minus_gaussian:
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'minus_gaussian_%d' % (opt.gaussian))
+else:
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'gaussian_%d' % (opt.gaussian))
+if opt.blank_input:
+    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'blank_input')
 if opt.random_rotation:
   web_dir = os.path.join(web_dir, 'random_rotation') ##os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'random_rotation')
 webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
@@ -47,10 +52,8 @@ for i, data in enumerate(loader):
     if i >= opt.how_many:
         break
     
-    if opt.gaussian > 0:
-        A_npy = data['A'].numpy()
-        for t in range(opt.T):
-          data['A'][0,t] = torch.from_numpy(skimage.filters.gaussian(A_npy[0,t], sigma=opt.gaussian))
+    if opt.blank_input:
+        data['A'].fill_(0)
         
     model.set_input(data)
     model.test()

@@ -57,7 +57,7 @@ def draw(name, N):
   fig, ax = plt.subplots()
   ax.plot(x_train, y_train, 'ro')
   ax.plot(x_val, y_val, 'bo')
-  #ax.set_ylim(0, 0.07)
+  ax.set_ylim(0, 0.07)
   ax.set_xlabel('iterations')
   ax.set_ylabel('loss') 
   
@@ -65,6 +65,6 @@ def draw(name, N):
   outputpath = "checkpoints/{}/err.png".format(name)
   fig.savefig(outputpath)
 
-model = 't123_pdd_cosine_L1_unet128_T3_3d'
-N = datasize['pdd']
+model = 't1_colorfa_percept_unet128_T3_3d'
+N = datasize['colorfa']
 draw(model, N)
