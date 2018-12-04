@@ -8,6 +8,7 @@ from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from .unet import *
 from .convrnn import *
+import sys
 ###############################################################################
 # Functions
 ###############################################################################
@@ -124,9 +125,9 @@ def define_G(opt): ## input_nc, output_nc, ngf, which_model_netG, norm='batch', 
     if which_model_netG == 'convrnn':
         netG = ConvrnnGenerator(opt)
     elif which_model_netG == 'resnet_9blocks':
-        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
+        netG = ResnetGenerator(input_nc, output_nc, opt.T, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
     elif which_model_netG == 'resnet_6blocks':
-        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, gpu_ids=gpu_ids)
+        netG = ResnetGenerator(input_nc, output_nc, opt.T, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_128':
         netG = UnetGenerator(input_nc, output_nc, opt.T, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_128_tanhoff':
@@ -139,6 +140,11 @@ def define_G(opt): ## input_nc, output_nc, ngf, which_model_netG, norm='batch', 
         netG = UnetGenerator3D(input_nc, output_nc, opt.T, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_128_3d':
         netG = UnetGenerator3D(input_nc, output_nc, opt.T, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
+    elif which_model_netG == 'vae_fc':  
+        netG = VAE_fc(opt.isTrain)
+        ##netG = VAE(input_nc, output_nc, opt.T, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
+    elif which_model_netG == 'vae_conv':
+        netG = VAE_conv(opt.isTrain, input_nc, output_nc, opt.T, opt.n_per_conv_layer)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     if len(gpu_ids) > 0:
@@ -236,7 +242,7 @@ class CosineLoss(nn.Module):
   def __init__(self, tensor=torch.FloatTensor, conv_type='3d'):
     super(CosineLoss, self).__init__()
     self.Tensor = tensor
-    self.loss = nn.CosineEmbeddingLoss()
+    self.loss = nn.CosineEmbeddingLoss() ##size_average=False)
     self.conv_type = conv_type
 
   def __call__(self, x1, x2):
@@ -251,18 +257,272 @@ class CosineLoss(nn.Module):
     y = self.Tensor(x1.shape[0]).fill_(1) ##Variable(self.Tensor(x1.shape[0]).fill_(1))
     return self.loss(x1, x2, y)
 
+## Variational AutorEncoder
+## encoder is the conv+downsampling+resnetBlock part of the resnet
+## decoder is the upsampling part of the resnet
+## vae code example: https://github.com/pytorch/examples/blob/master/vae/main.py
+class VAE_base(nn.Module):
+    def __init__(self, isTrain):
+        super(VAE_base, self).__init__()
+        self.training = isTrain
+
+    def set_encoder(self, encoder):
+        self.encoder = encoder
+
+    def set_h2mu(self, h2mu):
+        self.h2mu = h2mu
+
+    def set_h2logvar(self, h2logvar):
+        self.h2logvar = h2logvar
+
+    def set_z2decoder(self, z2decoder):
+        self.z2decoder = z2decoder
+
+    def set_encoder_output_shape(self, shape):
+        self.encoder_output_shape = shape
+
+    def set_output_shape(self, shape):
+        self.output_shape = shape
+
+    def set_decoder(self, decoder):
+        self.decoder = decoder
+
+    def encode(self, x):
+        h = self.encoder(x)
+        h = h.view(h.shape[0], -1)
+        return self.h2mu(h), self.h2logvar(h)
+       
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = logvar.mul(0.5).exp_()
+            eps = torch.randn_like(std)
+            return eps.mul(std).add_(mu)
+        else:
+            return mu
+
+    def decode(self, z):
+        h = self.z2decoder(z)
+        h = h.view(self.encoder_output_shape)
+        y = self.decoder(h)
+        y = y.view(self.output_shape)
+        return y
+
+    def forward(self, x):
+        if len(x.shape) == 5:
+            x = x.view(-1, x.size(2), x.size(3), x.size(4)) ## [BxT, C, H, W]
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+class VAE_fc(nn.Module):
+    def __init__(self, isTrain):
+        super(VAE_fc, self).__init__()
+        self.training = isTrain
+
+        hsize = 20 ## 20
+        self.fc1 = nn.Linear(16384, 1024)
+        self.fc12 = nn.Linear(1024, 400)
+        self.fc21 = nn.Linear(400, hsize) ##20
+        self.fc22 = nn.Linear(400, hsize)
+        self.fc3 = nn.Linear(hsize, 400)
+        self.fc32 = nn.Linear(400, 1024)
+        self.fc4 = nn.Linear(1024, 49152)
+
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def encode(self, x):
+        h1 = self.relu(self.fc1(x))
+        h1 = self.relu(self.fc12(h1))
+        return self.fc21(h1), self.fc22(h1)
+
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = logvar.mul(0.5).exp_()
+            eps = torch.randn_like(std)
+            return eps.mul(std).add_(mu)
+        else:
+            return mu
+
+    def decode(self, z):
+        h3 = self.relu(self.fc3(z))
+        h3 = self.relu(self.fc32(h3))
+        y = self.sigmoid(self.fc4(h3))
+        y = y.view(-1, 3, 128, 128)
+        return y 
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, 16384))
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+
+class VAE_conv(VAE_base):
+    def __init__(self, isTrain, input_nc, output_nc, T, convlayers=1):
+        super(VAE_conv, self).__init__(isTrain)
+        self.input_nc = input_nc
+        self.output_nc = output_nc
+        self.T = T
+
+        #ngf = 16
+        #n_downsampling = 4
+        #mult = 1
+        #for i in range(n_downsampling):
+        #    next_mult = 2 ** i
+        #    if i == 0:
+        #        first_nc = input_nc
+        #    else:
+        #        first_nc = ngf * mult
+        #    encoder += [nn.Conv2d(first_nc, ngf * next_mult, kernel_size=3, stride=2, padding=1),
+        #         norm_layer(ngf * next_mult),
+        #         nn.ReLU(True),
+        #         nn.Conv2d(ngf * next_mult, ngf * next_mult, kernal_size=3, padding=1],
+        #         norm_layer(ngf * next_mult),
+        #         nn.ReLU(True)]
+        #    mult = next_mult
+        encoder = self.conv_layer(input_nc, 16)
+        encoder.extend(self.conv_layer(16, 32, convlayers))
+        encoder.extend(self.conv_layer(32, 64, convlayers))
+        encoder.extend(self.conv_layer(64, 128, convlayers))
+        encoder.extend(self.conv_layer(128, 128, convlayers))
+        ## output is [B, 128, 4, 4], after flatten will be [B, 2048]
+        self.set_encoder(nn.Sequential(*encoder))
+        self.set_encoder_output_shape((-1, 128, 4, 4))
+
+        self.set_h2mu(nn.Linear(2048, 128))
+        self.set_h2logvar(nn.Linear(2048, 128))
+        
+        self.set_z2decoder(nn.Linear(128, 2048))
+        decoder = self.convtranspose_layer(128, 128, convlayers)
+        decoder.extend(self.convtranspose_layer(128, 64, convlayers))
+        decoder.extend(self.convtranspose_layer(64, 32, convlayers))
+        decoder.extend(self.convtranspose_layer(32, 16, convlayers))
+        decoder.extend([nn.ConvTranspose2d(16, output_nc, kernel_size=3, stride=2, padding=1, output_padding=1),
+                   nn.Tanh()]) 
+        self.set_decoder(nn.Sequential(*decoder))
+        self.set_output_shape((-1, output_nc, 128, 128))
+
+    def conv_layer(self, in_nc, out_nc, nlayers=1):
+        layer = [nn.Conv2d(in_nc, out_nc, kernel_size=3, stride=2, padding=1),
+                nn.BatchNorm2d(out_nc),
+                nn.ReLU(True)]
+        for i in range(1, int(nlayers)):
+            layer += [nn.Conv2d(out_nc, out_nc, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(out_nc),
+                nn.ReLU(True)]
+        return layer
+
+    def convtranspose_layer(self, in_nc, out_nc, nlayers=1):
+        layer = [nn.ConvTranspose2d(in_nc, out_nc, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.BatchNorm2d(out_nc),
+                nn.ReLU(True)]
+        for i in range(1, int(nlayers)):
+            layer += [nn.ConvTranspose2d(out_nc, out_nc, kernel_size=3, stride=1, padding=1, output_padding=0),
+                nn.BatchNorm2d(out_nc),
+                nn.ReLU(True)]
+        return layer
+
+class VAE_resnet(nn.Module):
+    def __init__(self, input_nc, output_nc, T, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[], padding_type='reflect'):
+        super(VAE, self).__init__()
+        self.input_nc = input_nc
+        self.output_nc = output_nc
+        self.T = T
+
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+
+        encoder = [nn.ReflectionPad2d(3),
+                 nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0,
+                           bias=use_bias),
+                 norm_layer(ngf),
+                 nn.ReLU(True)]
+
+        n_downsampling = 2
+        for i in range(n_downsampling):
+            mult = 2**i
+            encoder += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
+                                stride=2, padding=1, bias=use_bias),
+                      norm_layer(ngf * mult * 2),
+                      nn.ReLU(True)]
+
+        mult = 2**n_downsampling
+        self.mult = mult
+        self.ngf = ngf
+        for i in range(n_blocks):
+            encoder += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+        
+        self.encoder = nn.Sequential(*encoder)
+
+        ## output is [B, 256, 32, 32]
+        flatten_size = ngf * mult * 32 * 32
+        self.fc = nn.Linear(flatten_size, 512)
+        self.fc_h2mu = nn.Linear(512, 128)
+        self.fc_h2logvar = nn.Linear(512, 128)
+        self.fc_z2decoder = nn.Linear(128, flatten_size)
+        
+        decoder = []
+        for i in range(n_downsampling):
+            mult = 2**(n_downsampling - i)
+            decoder += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+                                         kernel_size=3, stride=2,
+                                         padding=1, output_padding=1,
+                                         bias=use_bias),
+                      norm_layer(int(ngf * mult / 2)),
+                      nn.ReLU(True)]
+        decoder += [nn.ReflectionPad2d(3)]
+        decoder += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
+        decoder += [nn.Tanh()]
+        self.decoder = nn.Sequential(*decoder)
+
+    def encode(self, x):
+        h = self.encoder(x)
+        ##print('+++++++++++', h.shape)
+        h = h.view(h.shape[0], -1)
+        ##print('-------------', h.shape)
+        h = self.fc(h)
+        mu = self.fc_h2mu(h)
+        logvar = self.fc_h2logvar(h)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)
+
+    def decode(self, z):
+        y = self.fc_z2decoder(z)
+        y = y.view(y.shape[0], self.mult*self.ngf, 32, 32)
+        y = self.decoder(y)
+        return y
+
+    def forward(self, input):
+        x = input.view(-1, input.size(2), input.size(3), input.size(4)) ## [BxT, C, H, W]
+        mu, logvar = self.encode(x)
+        if self.train:
+            z = self.reparameterize(mu, logvar)
+        else:
+            z = mu
+        y = self.decode(z)
+        y = y.view(-1, self.T * self.output_nc, y.size(2), y.size(3))
+        return y, mu, logvar
+        
+
 # Defines the generator that consists of Resnet blocks between a few
 # downsampling/upsampling operations.
 # Code and idea originally from Justin Johnson's architecture.
 # https://github.com/jcjohnson/fast-neural-style/
 class ResnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[], padding_type='reflect'):
+    def __init__(self, input_nc, output_nc, T, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[], padding_type='reflect'):
         assert(n_blocks >= 0)
         super(ResnetGenerator, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
         self.ngf = ngf
         self.gpu_ids = gpu_ids
+        self.T = T
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
@@ -301,10 +561,14 @@ class ResnetGenerator(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, input):
-        if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
-        else:
-            return self.model(input)
+        #if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        #    return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        #else:
+        #    return self.model(input)
+        x = input.view(-1, input.size(2), input.size(3), input.size(4)) ## [BxT, C, H, W]
+        y = self.model(x)   ## y: [BXT, output_nc, H, W]
+        y = y.view(-1, self.T * self.output_nc, y.size(2), y.size(3))
+        return y
 
 
 # Define a resnet block

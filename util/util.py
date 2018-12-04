@@ -17,7 +17,7 @@ def mkdir(path):
 
 # Converts a Tensor into a Numpy array
 # |imtype|: the desired type of the converted numpy array
-def tensor2im(image_tensor, idx=0, imtype=np.uint8):
+def tensor2im(image_tensor, idx=0, imtype=np.uint8, undo_norm=True):
     img_tensor = image_tensor
     if len(image_tensor.shape) == 4:
       img_tensor = image_tensor[0]
@@ -26,12 +26,15 @@ def tensor2im(image_tensor, idx=0, imtype=np.uint8):
     image_numpy = img_tensor.cpu().float().numpy()
     if image_numpy.shape[0] == 1:
         image_numpy = np.tile(image_numpy, (3, 1, 1))
-    image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
+    if undo_norm:
+        image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0  ## undo norm and make it to [0, 255]
+    else:
+        image_numpy = np.transpose(image_numpy, (1, 2, 0)) * 255.0
     #return image_numpy.astype(imtype)
     return image_numpy
 
 ## return [0,1]
-def tensor2np(image_tensor, idx, undo_norm = True):
+def tensor2np(image_tensor, idx=0, undo_norm = True):
   if len(image_tensor.shape) == 4:
     img_tensor = image_tensor[0]
   elif len(image_tensor.shape) == 5:

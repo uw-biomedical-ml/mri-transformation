@@ -104,7 +104,7 @@ class SliceDataset(data.Dataset):
         else:
           AB[:, h_offset:h_offset + self.opt.fineSize,
              w_offset:w_offset + self.opt.fineSize] = A_blurred_tensor
-          
+      
       AB = transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))(AB)
       ABs.append(AB)
 
@@ -152,13 +152,14 @@ class SliceDataset(data.Dataset):
       tmp = B[:, 0, ...] * 0.299 + B[:, 1, ...] * 0.587 + B[:, 2, ...] * 0.114
       B = tmp.unsqueeze(1)
 
+    B_original = B.clone()
     if self.opt.same_hemisphere:
       mask = torch.ones(B.shape[0], B.shape[2], B.shape[3])
       mask.masked_fill_(B[:,0].lt(0), -1)
       for i in range(B.shape[1]):
         B[:, i] = B[:, i] * mask
 
-    return {'A': A, 'B': B, 'AB_path':AB_path}
+    return {'A': A, 'B': B, 'AB_path':AB_path, 'B_original':B_original}
       
   def __len__(self):
     return len(self.indices)

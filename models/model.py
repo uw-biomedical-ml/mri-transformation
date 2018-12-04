@@ -43,7 +43,7 @@ class Model(BaseModel):
       # define loss function
       self.criterionGAN = networks.GANLoss(with_logit_loss=opt.with_logit_loss, use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
         
-      self.criterionL1 = nn.L1Loss()
+      self.criterionL1 = nn.L1Loss() ##size_average=False)
       self.criterionCosine = networks.CosineLoss(tensor=self.Tensor, conv_type=opt.conv_type)
       if opt.use_percept:
         self.vgg = Vgg16(requires_grad=False)
@@ -69,10 +69,13 @@ class Model(BaseModel):
     #  networks.print_network(self.netD)
     print('-----------------------------------------------')
 
-  def forward(self, volatile):
+  def forward(self):
     self.real_A = self.input_A ##Variable(self.input_A, volatile=volatile)
     self.real_B = self.input_B ##Variable(self.input_B, volatile=volatile)
-    self.fake_B = self.netG(self.real_A) ## check whether pred is still Variable, [B,T,c,h,w]
+    if 'vae' in self.opt.which_model_netG:
+        self.fake_B, self.mu, self.logvar = self.netG(self.real_A)
+    else:
+        self.fake_B = self.netG(self.real_A) ## check whether pred is still Variable, [B,T,c,h,w]
     #if self.gpu_ids and isinstance(self.real_A.data, torch.cuda.FloatTensor):
     #  self.fake_B = nn.parallel.data_parallel(self.netG, self.real_A, self.gpu_ids)
     #else:
@@ -88,7 +91,7 @@ class Model(BaseModel):
     self.compute(True, True)
 
   def compute(self, compute_loss, run_backward):
-    self.forward(not run_backward)
+    self.forward()
     shape = self.real_A.shape
     B, T, input_nc, H, W = shape[0], shape[1], shape[2], shape[3], shape[4]
     if self.opt.conv_type == '2d':
@@ -177,6 +180,12 @@ class Model(BaseModel):
       self.loss_G = self.loss_G_content
     else:
       self.loss_G = self.loss_G_GAN + self.loss_G_content
+
+    if 'vae' in self.opt.which_model_netG:
+      ##print('mu', self.mu.shape, 'logvar', self.logvar.shape, self.mu.mean(), self.mu.std(), self.logvar.mean(), self.logvar.std())
+      self.loss_KLD = -0.5 * torch.sum(1 + self.logvar - self.mu.pow(2) - self.logvar.exp())
+      self.loss_G = self.loss_G + self.loss_KLD 
+      ##print('KLD', self.loss_KLD.detach(), 'content', self.loss_G_content.detach())
     ##self.loss_G.backward()
 
   def set_input(self, input):
@@ -198,6 +207,8 @@ class Model(BaseModel):
     loss_L1 = 0
     loss_cosine = 0
     loss_percept = 0
+    loss_KLD = 0
+    loss_G = self.loss_G.detach()
     if not self.opt.content_only:
       loss_D_real = self.loss_D_real.detach() ##self.loss_D_real.data[0]
       loss_D_fake = self.loss_D_fake.detach() ##data[0]
@@ -210,12 +221,16 @@ class Model(BaseModel):
         loss_cosine = self.loss_G_cosine.detach() ##data[0]
       if self.opt.use_percept:
         loss_percept = self.loss_G_percept.detach() ##data[0]
+      if 'vae' in self.opt.which_model_netG:
+        loss_KLD = self.loss_KLD.detach()
 
     return OrderedDict([('G_GAN', loss_G_GAN),
+                        ('loss_G', loss_G),
                         ('G_content', loss_G_content),
                         ('loss_L1', loss_L1),
                         ('loss_percept', loss_percept),
                         ('loss_cosine', loss_cosine),
+                        ('loss_KLD', loss_KLD),
                         ('D_real', loss_D_real),
                         ('D_fake', loss_D_fake)
                       ])

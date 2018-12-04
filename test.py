@@ -16,6 +16,7 @@ opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
 opt.serial_batches = True  # no shuffle
 opt.no_flip = True  # no flip
+#opt.isTrain = False
 
 dataset = SliceDataset(opt)
 loader = torch.utils.data.DataLoader(
@@ -26,21 +27,22 @@ loader = torch.utils.data.DataLoader(
 
 model = Model()
 model.initialize(opt)
-
+name = opt.name
 if eval_mode:
   model.eval()
+  name = name + '_evalmode'
 visualizer = Visualizer(opt)
 # create website
 if opt.minus_gaussian:
-    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'minus_gaussian_%d' % (opt.gaussian))
+    web_dir = os.path.join(opt.results_dir, name, '%s_%s' % (opt.phase, opt.which_epoch), 'minus_gaussian_%d' % (opt.gaussian))
 else:
-    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'gaussian_%d' % (opt.gaussian))
+    web_dir = os.path.join(opt.results_dir, name, '%s_%s' % (opt.phase, opt.which_epoch), 'gaussian_%d' % (opt.gaussian))
 if opt.blank_input:
-    web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'blank_input')
+    web_dir = os.path.join(opt.results_dir, name, '%s_%s' % (opt.phase, opt.which_epoch), 'blank_input')
 if opt.random_rotation:
-  web_dir = os.path.join(web_dir, 'random_rotation') ##os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'random_rotation')
-webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
-npy_dir = os.path.join(web_dir, 'numpy') ##opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch), 'numpy')
+  web_dir = os.path.join(web_dir, 'random_rotation') ##os.path.join(opt.results_dir, name, '%s_%s' % (opt.phase, opt.which_epoch), 'random_rotation')
+webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (name, opt.phase, opt.which_epoch))
+npy_dir = os.path.join(web_dir, 'numpy') ##opt.results_dir, name, '%s_%s' % (opt.phase, opt.which_epoch), 'numpy')
 if not os.path.exists(npy_dir):
   os.makedirs(npy_dir)
 
@@ -76,7 +78,8 @@ for i, data in enumerate(loader):
     short_path = ntpath.basename(model.get_image_paths()[0])
     name = os.path.splitext(short_path)[0]
     for label, im in data_np.items(): ## im value in [0,1]
-      im = im * 2 - 1  ## im value in [-1, 1]
+      if opt.target_type == 'pdd':
+        im = im * 2 - 1  ## im value in [-1, 1]
       output_name = '%s_%s' % (name, label)
       save_path = os.path.join(npy_dir, output_name)
       np.save(save_path, im)        

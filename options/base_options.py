@@ -2,7 +2,7 @@ import argparse
 import os
 from util import util
 import torch
-
+import sys
 
 class BaseOptions():
     def __init__(self):
@@ -56,12 +56,15 @@ class BaseOptions():
         self.parser.add_argument('--data_suffix', type=str, default='png', help='data format, npy|png')
         self.parser.add_argument('--valid_folder', type=str, default='valid', help='validation data folder, valid|val')
         self.parser.add_argument('--same_hemisphere', action='store_true', help='if specified flip all channels so that all vectors are in the same hemishere as x1>=0')
+        self.parser.add_argument('--gaussian', type=float, default=0, help='gaussian filter sigma')
+        self.parser.add_argument('--minus_gaussian', action='store_true', help='input is origina - gaussian blurred version')
+        self.parser.add_argument('--n_per_conv_layer', type=float, default=1, help='number of layers per conv layer')
         self.initialized = True
 
-    def parse(self):
+    def parse(self, argv = sys.argv[1:]):
         if not self.initialized:
             self.initialize()
-        self.opt = self.parser.parse_args()
+        self.opt = self.parser.parse_args(argv)
         self.opt.isTrain = self.isTrain   # train or test
 
         str_ids = self.opt.gpu_ids.split(',')
