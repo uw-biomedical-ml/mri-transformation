@@ -73,11 +73,11 @@ for i, data in enumerate(loader):
       visualizer.save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, add_to_html=i<opt.how_many_display)
     if i > opt.how_many_display:
       webpage.save()
-    #if opt.target_type == 'pdd':
     data_np = model.get_current_numpy(predict_idx)
     short_path = ntpath.basename(model.get_image_paths()[0])
     name = os.path.splitext(short_path)[0]
     for label, im in data_np.items(): ## im value in [0,1]
+      #print(label, im.shape)
       if opt.target_type == 'pdd':
         im = im * 2 - 1  ## im value in [-1, 1]
       output_name = '%s_%s' % (name, label)

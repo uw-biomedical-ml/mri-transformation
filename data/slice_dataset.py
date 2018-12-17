@@ -66,7 +66,7 @@ class SliceDataset(data.Dataset):
 
   def load_single_file(self, fname):
     if self.suffix == 'npy':
-      AB = np.load(fname) ## AB is a numpy array in the range of [0,1]
+      AB = np.load(fname) ## AB is a numpy array, for pdd it's in the range of [0,1], for colorfa, it's the originla value from nii.gz, should be [-1,1]
       AB = torch.from_numpy(AB).float() ## shape: fineSize x (2 * fineSize) x 3
       AB = AB.permute(2,0,1) ## C x H x W
     else:
@@ -77,7 +77,7 @@ class SliceDataset(data.Dataset):
   def __getitem__(self, idx):
     subject = self.subject_lookup[self.indices[idx][0]]
     slice_start = self.indices[idx][1]
-    ABs = []
+    As, Bs = [], []
     for i in range(self.T):
       if self.suffix == 'npy' or self.suffix == 'png': ## colorfa/pdd: or self.suffix == 'png': without or: mra
         fname = "%s/%s_%04d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
@@ -105,19 +105,37 @@ class SliceDataset(data.Dataset):
           AB[:, h_offset:h_offset + self.opt.fineSize,
              w_offset:w_offset + self.opt.fineSize] = A_blurred_tensor
       
-      AB = transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))(AB)
-      ABs.append(AB)
+      w_total = AB.size(2)
+      w = int(w_total / 2)
+      h = AB.size(1)
+      w_offset = random.randint(0, max(0, w - self.opt.fineSize - 1))
+      h_offset = random.randint(0, max(0, h - self.opt.fineSize - 1))
+      A = AB[:, h_offset:h_offset + self.opt.fineSize,
+           w_offset:w_offset + self.opt.fineSize]
+      B = AB[:, h_offset:h_offset + self.opt.fineSize,
+           w + w_offset:w + w_offset + self.opt.fineSize]
+        
+      if self.opt.target_type == 'fa':
+          B = B.norm(dim=0, keepdim=True)
+          B.clamp_(0,1)
+            
+      A = transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))(A)
+      B = transforms.Normalize([0.5],[0.5])(B)
+      As.append(A)
+      Bs.append(B)
 
-    AB = torch.stack(ABs, 0)  ## AB: [T,C,H,W], tensor, value in [-1,1]
-    w_total = AB.size(3)
-    w = int(w_total / 2)
-    h = AB.size(2)
-    w_offset = random.randint(0, max(0, w - self.opt.fineSize - 1))
-    h_offset = random.randint(0, max(0, h - self.opt.fineSize - 1))
-    A = AB[:, :, h_offset:h_offset + self.opt.fineSize,
-             w_offset:w_offset + self.opt.fineSize]
-    B = AB[:, :, h_offset:h_offset + self.opt.fineSize,
-             w + w_offset:w + w_offset + self.opt.fineSize]
+    A = torch.stack(As, 0)  ## A: [T,C,H,W], tensor, value in [-1,1]
+    B = torch.stack(Bs, 0)
+    #AB = torch.stack(ABs, 0)  ## AB: [T,C,H,W], tensor, value in [-1,1]
+    #w_total = AB.size(3)
+    #w = int(w_total / 2)
+    #h = AB.size(2)
+    #w_offset = random.randint(0, max(0, w - self.opt.fineSize - 1))
+    #h_offset = random.randint(0, max(0, h - self.opt.fineSize - 1))
+    #A = AB[:, :, h_offset:h_offset + self.opt.fineSize,
+    #         w_offset:w_offset + self.opt.fineSize]
+    #B = AB[:, :, h_offset:h_offset + self.opt.fineSize,
+    #         w + w_offset:w + w_offset + self.opt.fineSize]
 
     A_original = A.clone()
     if self.opt.input_channels:
@@ -148,18 +166,18 @@ class SliceDataset(data.Dataset):
       tmp = A[:, 0, ...] * 0.299 + A[:, 1, ...] * 0.587 + A[:, 2, ...] * 0.114
       A = tmp.unsqueeze(1)
 
-    if output_nc == 1:  # RGB to gray
+    if output_nc == 1 and B.shape[1] != 1:  # RGB to gray
       tmp = B[:, 0, ...] * 0.299 + B[:, 1, ...] * 0.587 + B[:, 2, ...] * 0.114
       B = tmp.unsqueeze(1)
 
-    B_original = B.clone()
+    #B_original = B.clone()
     if self.opt.same_hemisphere:
       mask = torch.ones(B.shape[0], B.shape[2], B.shape[3])
       mask.masked_fill_(B[:,0].lt(0), -1)
       for i in range(B.shape[1]):
         B[:, i] = B[:, i] * mask
 
-    return {'A': A, 'B': B, 'AB_path':AB_path, 'B_original':B_original}
+    return {'A': A, 'B': B, 'AB_path':AB_path}
       
   def __len__(self):
     return len(self.indices)

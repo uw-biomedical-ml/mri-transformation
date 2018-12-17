@@ -40,8 +40,8 @@ def tensor2np(image_tensor, idx=0, undo_norm = True):
   elif len(image_tensor.shape) == 5:
     img_tensor = image_tensor[0][idx]
   image_numpy = img_tensor.cpu().float().numpy()
-  if image_numpy.shape[0] == 1:
-        image_numpy = np.tile(image_numpy, (3, 1, 1))
+  #if image_numpy.shape[0] == 1:
+  #      image_numpy = np.tile(image_numpy, (3, 1, 1))
   image_numpy = np.transpose(image_numpy, (1, 2, 0))
   if undo_norm:
     image_numpy = (image_numpy + 1) / 2.0

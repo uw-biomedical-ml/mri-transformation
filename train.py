@@ -12,6 +12,7 @@ import sys
 opt = TrainOptions().parse()
 
 dataset = SliceDataset(opt)
+print(dataset.__len__())
 loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=opt.batchSize,
@@ -40,8 +41,6 @@ visualizer = Visualizer(opt)
 
 model = Model()
 model.initialize(opt)
-
-print("----------- output_nc", opt.output_nc)
 
 predict_idx = -1
 if opt.predict_idx_type == 'middle':
@@ -97,6 +96,9 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     #save_image(tensor2im(A_2), 'tmp/{}_2.png'.format(i))
     #if i == 15:
     #  sys.exit()
+
+    #B = data['B']
+    #print(B.shape, B.min(), B.max(), B.gt(1).sum())
 
     cnt = cnt + 1
     iter_start_time = time.time()

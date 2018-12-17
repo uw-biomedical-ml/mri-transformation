@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-datasize = {'pdd': 15858, 'colorfa': 16224}
+datasize = {'pdd': 15858, 'colorfa': 15858}
 def get_err(block, conv_func = float):
   if block:
     return conv_func(block[0].split(' ')[1])
@@ -65,7 +65,7 @@ def draw(name, N, yfunc, outputname):
   fig, ax = plt.subplots()
   ax.plot(x_train, y_train, 'ro')
   ax.plot(x_val, y_val, 'bo')
-  ax.set_ylim(0, 100)  ## when size_average=True: color_fa 0.07, pdd KLD: 100
+  ax.set_ylim(0, 0.1)  ## when size_average=True: color_fa 0.07, pdd KLD: 100
   ax.set_xlabel('iterations')
   ax.set_ylabel('loss') 
   
@@ -79,7 +79,7 @@ def draw_content_loss(name, N):
 def draw_KLD_loss(name, N):
     draw(name, N, get_KLD_loss, 'err_KLD.png')
 
-model = 't1_pdd_vae_conv_2d'
-N = datasize['pdd'] ##['colorfa']
-#draw_content_loss(model, N)
-draw_KLD_loss(model, N)
+model = 't1_fa_L1_unet128_T3_3d'
+N = datasize['colorfa'] ##['colorfa']
+draw_content_loss(model, N)
+#draw_KLD_loss(model, N)

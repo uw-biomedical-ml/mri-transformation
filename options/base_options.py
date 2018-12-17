@@ -59,6 +59,7 @@ class BaseOptions():
         self.parser.add_argument('--gaussian', type=float, default=0, help='gaussian filter sigma')
         self.parser.add_argument('--minus_gaussian', action='store_true', help='input is origina - gaussian blurred version')
         self.parser.add_argument('--n_per_conv_layer', type=float, default=1, help='number of layers per conv layer')
+        self.parser.add_argument('--target_type', type=str, default='', help='pdd | qform025 | qform134 | qform | colorfa')
         self.initialized = True
 
     def parse(self, argv = sys.argv[1:]):
