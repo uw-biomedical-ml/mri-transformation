@@ -11,3 +11,4 @@ results/
 */**/**/**/**/*.pyc
 *.swp
 *.pth
+scripts_backup/*

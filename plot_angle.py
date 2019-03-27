@@ -59,7 +59,7 @@ def angle(v1, v2):
   return np.arccos(cosine)
 
 def check_transformation():
-    args = ['--dataroot', '/data/mri/data/pdd_sliced', '--loadSize', '128', '--fineSize', '128', '--input_nc', '1', '--input_channels', '0', '--data_suffix', 'npy', '--T', '1']
+    args = ['--dataroot', '/data/mri/data/pdd_sliced', '--fineSize', '128', '--input_nc', '1', '--input_channels', '0', '--data_suffix', 'npy', '--T', '1']
     opt = TestOptions().parse(args)
     opt.same_hemisphere = True
     #opt.nThreads = 1   # test code only supports nThreads = 1

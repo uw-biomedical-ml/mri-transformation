@@ -11,11 +11,19 @@ import numpy as np
 from PIL import ImageFilter
 ##import util.util as util
 
-def _get_subject_slice(filepath, suffix):
-  if suffix == 'png':
-    m = re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##colorfa/pdd: re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##re.match(r'(.*)-(\d+).png', os.path.basename(filepath)), mra
-  elif suffix == 'npy':
+def _get_subject_slice(filepath, target_type):
+  if target_type == 'mra':
+    assert 'png' in filepath
+    m = re.match(r'(.*)-(\d+).png', os.path.basename(filepath))
+  elif target_type == 'pdd' or target_type == 'fa':
+    assert 'npy' in filepath
     m = re.match(r'(.*)_(\d+)\.(.*)', os.path.basename(filepath))
+  else:
+    raise ValueError('%s not supported' % target_type) 
+  #if suffix == 'png':
+  #  m = re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##colorfa/pdd: re.match(r'(.*)_(\d+).png', os.path.basename(filepath)) ##re.match(r'(.*)-(\d+).png', os.path.basename(filepath)), mra
+  #elif suffix == 'npy':
+  #  m = re.match(r'(.*)_(\d+)\.(.*)', os.path.basename(filepath))
   return m.group(1), int(m.group(2))
 
 class SliceDataset(data.Dataset):
@@ -23,11 +31,18 @@ class SliceDataset(data.Dataset):
     super(SliceDataset, self).__init__()
     self.opt = opt
     self.dir_AB = os.path.join(opt.dataroot, opt.phase)
-    self.suffix = opt.data_suffix
+    #self.suffix = opt.data_suffix
+    self.target_type = opt.target_type
+    if opt.target_type == 'pdd' or opt.target_type == 'fa':
+      suffix = 'npy'
+    elif opt.target_type == 'mra':
+      suffix = 'png'
+    else:
+      raise ValueError('%s not supported' % self.target_type)
     subjects = {}
-    files = glob.glob("{}/*.{}".format(self.dir_AB, self.suffix))
+    files = glob.glob("{}/*.{}".format(self.dir_AB, suffix))
     for f in files:
-      subject, slice_id = _get_subject_slice(f, self.suffix)
+      subject, slice_id = _get_subject_slice(f, self.target_type)
       if subject in subjects:
         info = subjects[subject]
         min_id, max_id = info['min'], info['max']
@@ -65,7 +80,7 @@ class SliceDataset(data.Dataset):
     print("---------------- {} dataset contains {} samples ----------------".format(opt.phase, self.__len__()))
 
   def load_single_file(self, fname):
-    if self.suffix == 'npy':
+    if 'npy' in fname:
       AB = np.load(fname) ## AB is a numpy array, for pdd it's in the range of [0,1], for colorfa, it's the originla value from nii.gz, should be [-1,1]
       AB = torch.from_numpy(AB).float() ## shape: fineSize x (2 * fineSize) x 3
       AB = AB.permute(2,0,1) ## C x H x W
@@ -79,10 +94,13 @@ class SliceDataset(data.Dataset):
     slice_start = self.indices[idx][1]
     As, Bs = [], []
     for i in range(self.T):
-      if self.suffix == 'npy' or self.suffix == 'png': ## colorfa/pdd: or self.suffix == 'png': without or: mra
-        fname = "%s/%s_%04d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
+      #if self.suffix == 'npy' or self.suffix == 'png': ## colorfa/pdd: or self.suffix == 'png': without or: mra
+      if self.target_type == 'pdd' or self.target_type == 'fa':
+        fname = "%s/%s_%04d.npy" % (self.dir_AB, subject, slice_start + i)
+      elif self.target_type == 'mra':
+        fname = "%s/%s-%03d.png" % (self.dir_AB, subject, slice_start + i)
       else:
-        fname = "%s/%s-%03d.%s" % (self.dir_AB, subject, slice_start + i, self.suffix)
+        raise ValueError('%s not supported' % self.target_type)
       if i == self.predict_idx:
         AB_path = fname
       AB = self.load_single_file(fname)

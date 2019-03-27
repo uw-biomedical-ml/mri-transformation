@@ -1,1 +1,0 @@
-CUDA_VISIBLE_DEVICES=2 python test.py --dataroot /data/mri/data/multi-pix2pix-pytorch/t123_mra --name t123_mra_L1Only_T1 --which_direction AtoB --norm batch --content_only --T 1 --which_epoch 200 --how_many 100 --which_model_netG convrnn

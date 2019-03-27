@@ -11,7 +11,7 @@ class TestOptions(BaseOptions):
         self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
         self.parser.add_argument('--how_many', type=int, default=float("inf"), help='how many test images to run')
         self.parser.add_argument('--how_many_display', type=int, default=100, help='how many test images to display in the webpage')
-        self.parser.add_argument('--display_type', type=str, default='all', help='all | single')
+        self.parser.add_argument('--display_type', type=str, default='all', help='all (if input is a slab) | single')
         self.parser.add_argument('--blank_input', action='store_true', help='blank input')
         self.isTrain = False
 

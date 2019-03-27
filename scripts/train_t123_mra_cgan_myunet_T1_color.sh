@@ -1,1 +1,0 @@
-CUDA_VISIBLE_DEVICES=3 python train.py --dataroot /data/mri/data/multi-pix2pix-pytorch/t123_mra --name t123_mra_cgan_myunet_T1_color --which_model_netG my_unet --which_direction AtoB --dataset_mode aligned --no_lsgan --norm batch --pool_size 0 --gan_only --T 1 --predict_idx_type middle --output_nc 3 --with_logit_loss

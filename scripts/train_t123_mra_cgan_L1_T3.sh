@@ -1,1 +1,0 @@
-CUDA_VISIBLE_DEVICES=5 python train.py --dataroot /data/mri/data/multi-pix2pix-pytorch/t123_mra --name t123_mra_cgan_L1_T3 --which_direction AtoB --dataset_mode aligned --no_lsgan --norm batch --pool_size 0 --T 3 --lr 0.00002 --with_logit_loss --which_model_netG convrnn
