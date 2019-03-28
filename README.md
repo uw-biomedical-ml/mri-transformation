@@ -33,14 +33,14 @@ Run *test.py* to test the model. For example (*scripts/test_t1_fa_L1_resnet9_T3_
 CUDA_VISIBLE_DEVICES=4 python test.py --dataroot /data/mri/data/color_fa_sliced --name t1_fa_L1_resnet9_T3_3d --which_model_netG resnet_9blocks_3d --content_only --T 3 --predict_idx_type middle --output_nc 1 --norm batch_3d --conv_type 3d --fineSize 128 --valid_folder val --input_nc 1 --input_channels 0 --display_type single --which_epoch lowest_val --phase test --target_type fa
 ```
 
-More examples are in *scripts/*. For example, *scpripts/test_t1_fa_L1_resnet9_T3_3d_gaussian5.sh* for testing the models for images with gaussian filter with blur radius equals to 5 pixels.
-See all options for train.py, e.g. what models it supports:
+More examples are in *scripts/*. For example, *scpripts/test_t1_fa_L1_resnet9_T3_3d_gaussian5.sh* tests the model for images with gaussian filter with blur radius equals to 5 pixels.
+See all options for test.py:
 ```bash
-python train.py -h
+python test.py -h
 ```
 
 ## Trained models
-The weights of the trained models are stored under ***/data/mri/convrnn/checkpoints***. "_G" means the generator. "_D" means the discriminator for GAN, not applicable if not using GAN. *lowest_val_net_G.pth* is the weights of the generator at the lowest validation point.
+The weights of the trained models are stored under ***/data/mri/convrnn/checkpoints***. "_G" means the generator. "_D" means the discriminator for GAN, not applicable if not using GAN. *lowest_val_net_G.pth* is the weights of the generator at the lowest validation point. *20_net_G.pth* is the weights of the generator at the end of epoch 20.
 
 ## Results for test set
 All the results for test set are stored under ***/data/mri/convrnn/results***
