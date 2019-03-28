@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=4 python train.py --dataroot /data/mri/data/pdd_sliced --name t123_pdd_cosine_L1_unet128_2d --which_model_netG unet_128 --content_only --T 1 --predict_idx_type middle --output_nc 3 --norm batch --fineSize 128 --valid_folder val --use_cosine --same_hemisphere --use_L1 --conv_type 2d --validate_freq 1000 --niter 5 --niter_decay 5

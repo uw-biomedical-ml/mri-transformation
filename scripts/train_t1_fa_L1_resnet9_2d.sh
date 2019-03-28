@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=4 python train.py --dataroot /data/mri/data/color_fa_sliced --name t1_fa_L1_resnet9_2d --which_model_netG resnet_9blocks --content_only --T 1 --predict_idx_type middle --output_nc 1 --norm batch --fineSize 128 --valid_folder val --input_nc 1 --input_channels 0  --use_L1 --validate_freq 1000 --niter 10 --niter_decay 30 --target_type fa

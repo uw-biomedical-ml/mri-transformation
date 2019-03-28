@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=4 python train.py --dataroot /data/mri/data/multi-pix2pix-pytorch/t123_mra --name t123_mra_perceptOnly_T1 --norm batch --content_only --T 1 --which_model_netG unet_256 --use_percept --target_type mra

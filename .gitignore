@@ -1,0 +1,14 @@
+checkpoints/
+*.swo
+*/**/__pycache__
+*.log
+results/
+*.png
+*/*.pyc
+*/**/*.pyc
+*/**/**/*.pyc
+*/**/**/**/*.pyc
+*/**/**/**/**/*.pyc
+*.swp
+*.pth
+scripts_backup/*
